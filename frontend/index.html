@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuClip - AI Video Viral Clip Generator</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            950: '#030712',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        .progress-track { height: 8px; border-radius: 999px; background: #1e293b; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6366f1, #a855f7); transition: width .45s ease; }
+        .touch-button { min-height: 42px; touch-action: manipulation; }
+        @media (max-width: 480px) {
+            .mobile-stack { grid-template-columns: 1fr !important; }
+            .mobile-padding { padding-left: 1rem !important; padding-right: 1rem !important; }
+            #toast-container { left: 1rem; right: 1rem; width: auto; max-width: none; }
+            #drawer-content { padding: 1rem !important; }
+            #drawer > div:first-child { padding: 1rem !important; }
+            .job-actions { width: 100%; }
+            .job-actions button { flex: 1; justify-content: center; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white">
+    
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full"></div>
+
+    <div class="flex flex-col min-h-screen">
+        
+        <!-- Navigation Header -->
+        <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between mobile-padding">
+                <div class="flex items-center gap-3">
+                    <div class="bg-gradient-to-tr from-indigo-500 to-purple-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20">
+                        <i data-lucide="video" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+                            DocuClip
+                        </h1>
+                        <p class="text-xs text-indigo-400 font-medium tracking-wide uppercase">AI Engine</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div id="backend-status" class="flex items-center gap-2 bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-700 text-xs font-semibold transition-all">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                        </span>
+                        <span class="text-slate-300">Checking API Connection...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Body Layout -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+                
+                <!-- Left Side: Submit Form & Active Tasks List -->
+                <div class="md:col-span-5 space-y-8">
+                    
+                    <!-- Submit New Job Card -->
+                    <div class="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                        <div class="absolute -right-16 -top-16 w-32 h-32 bg-indigo-600/10 rounded-full blur-3xl"></div>
+                        <div class="absolute -left-16 -bottom-16 w-32 h-32 bg-purple-600/10 rounded-full blur-3xl"></div>
+
+                        <h2 class="text-lg font-bold mb-5 flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
+                            New Processing Job
+                        </h2>
+                        
+                        <form id="process-form" class="space-y-5">
+                            <div>
+                                <label for="url" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">YouTube Video URL</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                                        <i data-lucide="play-circle" class="w-5 h-5"></i>
+                                    </span>
+                                    <input type="url" id="url" required 
+                                        placeholder="https://www.youtube.com/watch?v=..." 
+                                        class="w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="user_style" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Processing Style</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                                    </span>
+                                    <select id="user_style" 
+                                        class="w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-300 focus:outline-none transition appearance-none">
+                                        <option value="fast_paced">Fast-Paced (High Virality, Action-Packed Hooks)</option>
+                                        <option value="educational">Educational (Insightful Lessons, Definitions, Summaries)</option>
+                                        <option value="general">General (Key Takeaways, Interesting Highlights)</option>
+                                    </select>
+                                    <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 pointer-events-none">
+                                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 mobile-stack">
+                                <div>
+                                    <label for="clip_duration" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Clip Duration</label>
+                                    <select id="clip_duration" class="touch-button w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500 rounded-xl py-3 px-3 text-sm text-slate-300 focus:outline-none">
+                                        <option value="short">Short (15–30s)</option>
+                                        <option value="medium" selected>Medium (30–60s)</option>
+                                        <option value="long">Long (60–90s)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="video_quality" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Video Quality</label>
+                                    <select id="video_quality" class="touch-button w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500 rounded-xl py-3 px-3 text-sm text-slate-300 focus:outline-none">
+                                        <option value="360">Low (360p)</option>
+                                        <option value="480" selected>Medium (480p)</option>
+                                        <option value="720">High (720p)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" id="submit-btn" class="touch-button w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2">
+                                <span>Submit Video Job</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Job Quick-Stats -->
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-slate-900/30 border border-slate-800/80 rounded-2xl p-4 text-center">
+                            <span class="block text-2xl font-bold text-indigo-400" id="stat-total">0</span>
+                            <span class="text-xs text-slate-500">Total Jobs</span>
+                        </div>
+                        <div class="bg-slate-900/30 border border-slate-800/80 rounded-2xl p-4 text-center">
+                            <span class="block text-2xl font-bold text-yellow-400" id="stat-active">0</span>
+                            <span class="text-xs text-slate-500">Active</span>
+                        </div>
+                        <div class="bg-slate-900/30 border border-slate-800/80 rounded-2xl p-4 text-center">
+                            <span class="block text-2xl font-bold text-green-400" id="stat-completed">0</span>
+                            <span class="text-xs text-slate-500">Completed</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side: Job Tracking Dashboard -->
+                <div class="md:col-span-7 space-y-6">
+                    <div class="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 shadow-xl backdrop-blur-sm min-h-[500px] flex flex-col">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-lg font-bold flex items-center gap-2">
+                                <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
+                                Jobs & Task History
+                            </h2>
+                            <button id="refresh-btn" class="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition" title="Refresh List">
+                                <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <!-- Jobs List -->
+                        <div class="flex-1 overflow-y-auto max-h-[580px] pr-2 space-y-3" id="jobs-list">
+                            <!-- Loading indicator -->
+                            <div class="flex flex-col items-center justify-center py-20 text-slate-500">
+                                <div class="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mb-4"></div>
+                                <p class="text-sm">Fetching job history...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Slide-over Drawer for Clip Results -->
+        <div id="drawer" class="fixed inset-y-0 right-0 z-40 w-full max-w-2xl bg-slate-900 border-l border-slate-800 shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+            <!-- Drawer Header -->
+            <div class="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80 sticky top-0 backdrop-blur-md">
+                <div class="flex items-center gap-3">
+                    <div class="bg-emerald-500/10 p-2 rounded-xl text-emerald-400">
+                        <i data-lucide="film" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-md font-bold" id="drawer-title">Video Clip Output</h3>
+                        <p class="text-xs text-slate-400 mt-0.5 truncate max-w-md" id="drawer-subtitle">Loading...</p>
+                    </div>
+                </div>
+                <button onclick="toggleDrawer(false)" class="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Drawer Content -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6" id="drawer-content">
+                <!-- Clips list goes here dynamically -->
+            </div>
+        </div>
+
+        <!-- Drawer Overlay -->
+        <div id="drawer-overlay" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-35 hidden opacity-0 transition-opacity duration-300"></div>
+
+        <!-- Footer -->
+        <footer class="border-t border-slate-800 bg-slate-900/30 py-6 mt-12">
+            <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+                <p>DocuClip © 2026. Running FastAPI & Celery Distributed Task Processor.</p>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Page Logic scripts -->
+    <script>
+        // Set API base URL. Fallback to localhost if loaded via file protocol
+        const API_BASE = window.location.protocol === 'file:' 
+            ? 'http://localhost:8000' 
+            : window.location.origin;
+
+        let activeJobId = null;
+        let jobList = [];
+        let pollingInterval = null;
+
+        // Initialize Lucide Icons
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            checkAPIStatus();
+            fetchJobs();
+            startPolling();
+        });
+
+        // Backend Status Checker
+        async function checkAPIStatus() {
+            const statusEl = document.getElementById('backend-status');
+            try {
+                const res = await fetch(`${API_BASE}/health`);
+                if (res.ok) {
+                    statusEl.className = "flex items-center gap-2 bg-emerald-950/40 px-3.5 py-1.5 rounded-full border border-emerald-800 text-xs font-semibold text-emerald-400";
+                    statusEl.innerHTML = `
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span>API Connected</span>
+                    `;
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                statusEl.className = "flex items-center gap-2 bg-rose-950/40 px-3.5 py-1.5 rounded-full border border-rose-800 text-xs font-semibold text-rose-400";
+                statusEl.innerHTML = `
+                    <span class="relative flex h-2 w-2">
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                    </span>
+                    <span>API Disconnected</span>
+                `;
+            }
+        }
+
+        // Fetch all jobs
+        async function fetchJobs() {
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/jobs`);
+                if (!res.ok) throw new Error("Failed to fetch jobs");
+                
+                jobList = await res.json();
+                await Promise.all(jobList.filter(job => !["COMPLETED", "FAILED", "CANCELLED"].includes(job.status.toUpperCase())).map(async job => {
+                    try {
+                        const progressRes = await fetch(`${API_BASE}/api/v1/jobs/${job.video_id}/progress`);
+                        job.progress = progressRes.ok ? await progressRes.json() : null;
+                    } catch (_) {
+                        job.progress = null;
+                    }
+                }));
+                renderJobs();
+                updateStats();
+            } catch (err) {
+                showToast("error", "Error connecting to backend database!");
+                console.error(err);
+            }
+        }
+
+        // Render jobs to container
+        function renderJobs() {
+            const container = document.getElementById('jobs-list');
+            if (jobList.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-20 text-slate-500 border border-dashed border-slate-800 rounded-2xl bg-slate-900/10">
+                        <i data-lucide="folder-open" class="w-8 h-8 mb-3 text-slate-600"></i>
+                        <p class="text-sm font-medium">No processing jobs submitted yet</p>
+                        <p class="text-xs text-slate-600 mt-1">Submit a YouTube URL on the left to start.</p>
+                    </div>
+                `;
+                lucide.createIcons({attrs: {"class": "w-8 h-8 mb-3 text-slate-600"}});
+                return;
+            }
+
+            container.innerHTML = jobList.map(job => {
+                const date = new Date(job.created_at).toLocaleString();
+                const statusInfo = getStatusStyle(job.status);
+                
+                const isProcessing = !["COMPLETED", "FAILED", "CANCELLED"].includes(job.status.toUpperCase());
+                const progress = job.progress || {stage: "Queued", percent: 0, eta_seconds: 0};
+                const eta = progress.eta_seconds >= 60 ? `~${Math.ceil(progress.eta_seconds / 60)} min` : `~${progress.eta_seconds}s`;
+                
+                return `
+                    <div class="bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-4 transition-all duration-200 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="space-y-1.5 flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-mono text-xs text-slate-500">#${job.video_id}</span>
+                                <span class="${statusInfo.badgeClass} text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                    ${isProcessing ? `<span class="animate-pulse w-1.5 h-1.5 rounded-full bg-current"></span>` : ''}
+                                    ${job.status}
+                                </span>
+                            </div>
+                            <h3 class="text-sm font-semibold truncate text-slate-200" title="${job.url}">
+                                ${job.url}
+                            </h3>
+                            <div class="flex items-center gap-4 text-xs text-slate-500">
+                                <span class="flex items-center gap-1">
+                                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                                    ${date}
+                                </span>
+                                ${job.clip_count > 0 ? `
+                                <span class="flex items-center gap-1 text-emerald-400 font-semibold">
+                                    <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                    ${job.clip_count} Clips Found
+                                </span>` : ''}
+                            </div>
+                            ${isProcessing ? `
+                            <div class="mt-3 space-y-1.5">
+                                <div class="flex justify-between text-[11px] text-slate-400">
+                                    <span>Step ${progress.stage === 'Downloading' ? 1 : progress.stage === 'Transcribing' ? 2 : progress.stage === 'Analyzing' ? 3 : 4} of 4: ${progress.stage}</span>
+                                    <span>${progress.percent}% · Time left: ${eta}</span>
+                                </div>
+                                <div class="progress-track"><div class="progress-fill" style="width:${progress.percent}%"></div></div>
+                                ${progress.detail ? `<p class="text-[11px] text-slate-500 truncate">${progress.detail}</p>` : ''}
+                            </div>` : ''}
+                        </div>
+                        
+                        <div class="job-actions flex items-center gap-2 shrink-0">
+                            ${job.status.toUpperCase() === "COMPLETED" ? `
+                                <button onclick="viewClips(${job.video_id})" class="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 font-semibold text-xs py-2 px-3.5 border border-emerald-500/20 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                    View Clips
+                                </button>
+                            ` : isProcessing ? `
+                                <button onclick="cancelJob(${job.video_id})" class="touch-button bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs py-2 px-3.5 border border-rose-500/20 rounded-lg inline-flex items-center gap-1.5">
+                                    <i data-lucide="square" class="w-3.5 h-3.5"></i> Cancel
+                                </button>
+                            ` : job.status.toUpperCase() === "CANCELLED" ? `
+                                <button disabled class="bg-slate-800 text-slate-500 font-medium text-xs py-2 px-3.5 rounded-lg border border-slate-700/50 cursor-not-allowed">Cancelled</button>
+                            ` : `
+                                <button disabled class="bg-slate-800 text-slate-500 font-medium text-xs py-2 px-3.5 rounded-lg border border-slate-700/50 cursor-not-allowed inline-flex items-center gap-1.5">
+                                    <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                                    Failed
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        // Stats Counters
+        function updateStats() {
+            document.getElementById('stat-total').textContent = jobList.length;
+            document.getElementById('stat-active').textContent = jobList.filter(j => !["COMPLETED", "FAILED", "CANCELLED"].includes(j.status.toUpperCase())).length;
+            document.getElementById('stat-completed').textContent = jobList.filter(j => j.status.toUpperCase() === "COMPLETED").length;
+        }
+
+        // Color coding for status labels
+        function getStatusStyle(status) {
+            const s = status.toUpperCase();
+            if (s === 'COMPLETED') {
+                return { badgeClass: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' };
+            }
+            if (s === 'FAILED') {
+                return { badgeClass: 'bg-rose-500/10 text-rose-400 border border-rose-500/20' };
+            }
+            if (s === 'CANCELLED') {
+                return { badgeClass: 'bg-slate-500/10 text-slate-400 border border-slate-500/20' };
+            }
+            if (s === 'PENDING') {
+                return { badgeClass: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' };
+            }
+            // Processing styles:
+            return { badgeClass: 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' };
+        }
+
+        async function cancelJob(jobId) {
+            if (!confirm(`Cancel Job #${jobId}? Running downloads/FFmpeg tasks will be stopped.`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/jobs/${jobId}/cancel`, {method: 'POST'});
+                if (!res.ok) throw new Error('Cancellation failed');
+                showToast('success', `Job #${jobId} cancelled and worker resources released.`);
+                await fetchJobs();
+            } catch (err) {
+                showToast('error', 'Could not cancel this job.');
+                console.error(err);
+            }
+        }
+
+        // Show toast alerts
+        function showToast(type, message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const isSuccess = type === 'success';
+            toast.className = `flex items-start gap-3 p-4 rounded-2xl shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-y-2 opacity-0
+                ${isSuccess ? 'bg-emerald-950/80 border-emerald-800 text-emerald-200' : 'bg-rose-950/80 border-rose-800 text-rose-200'}`;
+            
+            toast.innerHTML = `
+                <div class="shrink-0 mt-0.5">
+                    <i data-lucide="${isSuccess ? 'check-circle' : 'alert-circle'}" class="w-5 h-5 ${isSuccess ? 'text-emerald-400' : 'text-rose-400'}"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-semibold text-slate-100">${isSuccess ? 'Success' : 'Error'}</p>
+                    <p class="text-xs text-slate-300 mt-0.5 leading-relaxed">${message}</p>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+            
+            // Trigger animation
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+            
+            // Remove after 4 seconds
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-1');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Submit form handler
+        document.getElementById('process-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const urlInput = document.getElementById('url');
+            const styleSelect = document.getElementById('user_style');
+            const durationSelect = document.getElementById('clip_duration');
+            const qualitySelect = document.getElementById('video_quality');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            const url = urlInput.value.trim();
+            const user_style = styleSelect.value;
+            
+            if (!url) return;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `
+                <div class="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                <span>Submitting video...</span>
+            `;
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/process-video`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url,
+                        user_style,
+                        clip_duration: durationSelect.value,
+                        video_quality: Number(qualitySelect.value)
+                    })
+                });
+                
+                if (!res.ok) throw new Error("Submission failed");
+                const data = await res.json();
+                
+                showToast("success", "Video successfully submitted to processing pipeline!");
+                urlInput.value = '';
+                
+                // Refresh list
+                await fetchJobs();
+            } catch (err) {
+                showToast("error", "Failed to submit processing request.");
+                console.error(err);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `
+                    <span>Submit Video Job</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                `;
+                lucide.createIcons();
+            }
+        });
+
+        // Helper to extract YouTube video ID from URL
+        function getYouTubeId(url) {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2] && match[2].length === 11) ? match[2] : null;
+        }
+
+        // Toggle playback view mode between Cut MP4 and Original YouTube video segment
+        function togglePlayerMode(clipId, mode) {
+            const mp4Container = document.getElementById(`mp4-player-${clipId}`);
+            const ytContainer = document.getElementById(`yt-player-${clipId}`);
+            const btnMp4 = document.getElementById(`btn-mp4-${clipId}`);
+            const btnYt = document.getElementById(`btn-yt-${clipId}`);
+
+            if (!mp4Container || !ytContainer) return;
+
+            // Never leave another clip's HTML5 audio playing when switching
+            // the active player for this clip.
+            document.querySelectorAll('#drawer-content video').forEach(video => {
+                video.pause();
+            });
+
+            if (mode === 'mp4') {
+                mp4Container.classList.remove('hidden');
+                ytContainer.classList.add('hidden');
+                if (btnMp4) btnMp4.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow transition";
+                if (btnYt) btnYt.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-slate-200 transition";
+            } else {
+                ytContainer.classList.remove('hidden');
+                mp4Container.classList.add('hidden');
+                if (btnYt) btnYt.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow transition";
+                if (btnMp4) btnMp4.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-slate-200 transition";
+            }
+        }
+
+        // Only one generated MP4 clip may play at a time. This listener uses
+        // capture mode so it also applies to video elements inserted later
+        // when the clips drawer is rendered.
+        document.addEventListener('play', (event) => {
+            if (event.target && event.target.tagName === 'VIDEO') {
+                document.querySelectorAll('#drawer-content video').forEach(video => {
+                    if (video !== event.target) video.pause();
+                });
+            }
+        }, true);
+
+        // View single job's clip details
+        async function viewClips(video_id) {
+            toggleDrawer(true);
+            const titleEl = document.getElementById('drawer-title');
+            const subtitleEl = document.getElementById('drawer-subtitle');
+            const contentEl = document.getElementById('drawer-content');
+            
+            titleEl.textContent = `Loading Clips...`;
+            subtitleEl.textContent = `Job #${video_id}`;
+            contentEl.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-20 text-slate-500">
+                    <div class="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mb-4"></div>
+                    <p class="text-sm">Retrieving clip details & preparing video stream...</p>
+                </div>
+            `;
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/jobs/${video_id}`);
+                if (!res.ok) throw new Error("Failed to load job details");
+                
+                const job = await res.json();
+                const youtubeId = getYouTubeId(job.url);
+                
+                titleEl.textContent = `Job #${job.video_id} - Clips Output`;
+                subtitleEl.textContent = job.url;
+                
+                if (!job.clips || job.clips.length === 0) {
+                    contentEl.innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-16 text-slate-500 border border-dashed border-slate-800 rounded-2xl">
+                            <i data-lucide="info" class="w-8 h-8 mb-3 text-slate-600"></i>
+                            <p class="text-sm font-semibold">No clips generated for this job</p>
+                            <p class="text-xs text-slate-600 mt-1">This might happen if the transcription did not match any viral hooks.</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+                
+                contentEl.innerHTML = job.clips.map((clip, index) => {
+                    const startMin = Math.floor(clip.start_time / 60);
+                    const startSec = Math.floor(clip.start_time % 60).toString().padStart(2, '0');
+                    const endMin = Math.floor(clip.end_time / 60);
+                    const endSec = Math.floor(clip.end_time % 60).toString().padStart(2, '0');
+                    
+                    const startSecondsInt = Math.floor(clip.start_time);
+                    const endSecondsInt = Math.ceil(clip.end_time);
+
+                    const scoreColor = clip.hybrid_score >= 8.0 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
+                                      : clip.hybrid_score >= 6.0 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' 
+                                      : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20';
+
+                    const clipVideoUrl = `${API_BASE}/${clip.clip_path.replace(/^\//, '')}`;
+                    // Do not autoplay every YouTube iframe. The user must
+                    // explicitly start a selected clip, otherwise all clips
+                    // would play audio simultaneously when the drawer opens.
+                    const ytEmbedUrl = youtubeId ? `https://www.youtube-nocookie.com/embed/${youtubeId}?start=${startSecondsInt}&end=${endSecondsInt}` : null;
+                    const ytDirectUrl = youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}&t=${startSecondsInt}s` : job.url;
+
+                    return `
+                        <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-4 hover:border-slate-700/80 transition relative overflow-hidden">
+                            <!-- Index Badge -->
+                            <div class="absolute -right-4 -bottom-4 text-7xl font-extrabold text-slate-900/40 font-mono pointer-events-none select-none">
+                                ${index + 1}
+                            </div>
+                            
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="flex items-center gap-1 text-indigo-400 text-xs font-semibold bg-indigo-500/5 px-2.5 py-1 rounded-lg border border-indigo-500/10">
+                                        <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                                        ${startMin}:${startSec} - ${endMin}:${endSec}
+                                    </span>
+                                    <span class="text-xs text-slate-500">
+                                        Duration: ${Math.round(clip.end_time - clip.start_time)}s
+                                    </span>
+                                </div>
+                                <span class="${scoreColor} border text-xs font-bold px-2.5 py-1 rounded-lg">
+                                    Score: ${clip.hybrid_score.toFixed(1)}/10
+                                </span>
+                            </div>
+                            
+                            <div class="space-y-1">
+                                <span class="text-xs font-bold text-indigo-400 tracking-wide uppercase">Topic & Concept</span>
+                                <h4 class="text-sm font-semibold text-slate-200 leading-snug">
+                                    ${clip.subject_hint || "Untitled Key Moment"}
+                                </h4>
+                            </div>
+                            
+                            <div class="space-y-1">
+                                <span class="text-xs font-bold text-slate-400 tracking-wide uppercase">LLM Viral Rationale</span>
+                                <p class="text-xs text-slate-300 leading-relaxed bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+                                    ${clip.reason || "No rationale metadata available."}
+                                </p>
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-xs font-bold text-emerald-400 tracking-wide uppercase">AI Selected Transcript</span>
+                                    <span class="text-[11px] font-mono text-slate-500">${startMin}:${startSec} → ${endMin}:${endSec}</span>
+                                </div>
+                                <p class="text-sm text-slate-200 leading-relaxed bg-emerald-950/20 border border-emerald-500/20 p-3.5 rounded-xl">
+                                    ${clip.transcript || "Transcript metadata is not available for this clip."}
+                                </p>
+                            </div>
+                            
+                            <!-- Video Player Section -->
+                            <div class="space-y-3 pt-2 border-t border-slate-800/80">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-400 tracking-wide uppercase flex items-center gap-1.5">
+                                        <i data-lucide="play-circle" class="w-4 h-4 text-indigo-400"></i>
+                                        Media Playback
+                                    </span>
+                                    
+                                    <div class="flex items-center gap-2">
+                                        <button id="btn-mp4-${clip.id}" onclick="togglePlayerMode(${clip.id}, 'mp4')" class="px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow transition">
+                                            Extracted MP4
+                                        </button>
+                                        ${youtubeId ? `
+                                        <button id="btn-yt-${clip.id}" onclick="togglePlayerMode(${clip.id}, 'yt')" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-slate-200 transition">
+                                            Original Video Segment
+                                        </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+
+                                <!-- MP4 Player Container -->
+                                <div id="mp4-player-${clip.id}" class="w-full space-y-1">
+                                    <video controls preload="metadata" src="${clipVideoUrl}" class="w-full rounded-xl shadow-lg border border-slate-800 bg-slate-950 max-h-[360px] object-contain">
+                                        Your browser does not support playing HTML5 video.
+                                    </video>
+                                    <div class="flex justify-end pt-1">
+                                        <a href="${clipVideoUrl}" download="clip_${clip.id}.mp4" target="_blank" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium">
+                                            <i data-lucide="download" class="w-3 h-3"></i> Download MP4 Clip
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- YouTube Segment Player Container -->
+                                ${youtubeId ? `
+                                <div id="yt-player-${clip.id}" class="w-full hidden space-y-1">
+                                    <div class="relative w-full pb-[56.25%] h-0 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shadow-lg">
+                                        <iframe src="${ytEmbedUrl}" class="absolute top-0 left-0 w-full h-full rounded-xl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                    </div>
+                                    <div class="flex justify-end pt-1">
+                                        <a href="${ytDirectUrl}" target="_blank" class="text-[11px] text-red-400 hover:text-red-300 flex items-center gap-1 font-medium">
+                                            <i data-lucide="external-link" class="w-3 h-3"></i> Open on YouTube (${startMin}:${startSec})
+                                        </a>
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                lucide.createIcons();
+            } catch (err) {
+                contentEl.innerHTML = `
+                    <div class="text-center py-10 text-rose-400 text-sm font-semibold">
+                        Failed to fetch clip details.
+                    </div>
+                `;
+            }
+        }
+
+        // Toggle drawer
+        function toggleDrawer(open) {
+            const drawer = document.getElementById('drawer');
+            const overlay = document.getElementById('drawer-overlay');
+            if (open) {
+                drawer.classList.remove('translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 50);
+            } else {
+                drawer.classList.add('translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        }
+
+        // Active background polling for jobs
+        function startPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            
+            pollingInterval = setInterval(async () => {
+                // If there is an active job, we fetch updates
+                const hasActive = jobList.some(j => !["COMPLETED", "FAILED", "CANCELLED"].includes(j.status.toUpperCase()));
+                if (hasActive) {
+                    await fetchJobs();
+                }
+            }, 2000);
+        }
+
+        // Refresh click
+        document.getElementById('refresh-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('refresh-btn');
+            btn.classList.add('animate-spin');
+            await fetchJobs();
+            await checkAPIStatus();
+            setTimeout(() => btn.classList.remove('animate-spin'), 600);
+        });
+    </script>
+</body>
+</html>

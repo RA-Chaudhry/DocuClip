@@ -1,0 +1,35 @@
+version: "3.8"
+name: docuclip
+
+services:
+  web:
+    build:
+      context: .
+      target: production
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WEB_WORKERS:-2}
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in the cloud environment}
+      POSTGRES_URL: ${DATABASE_URL:?DATABASE_URL must be set in the cloud environment}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL must be set in the cloud environment}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      WHISPER_MODEL: ${WHISPER_MODEL:-tiny}
+      MAX_QUALITY: ${MAX_QUALITY:-720}
+    restart: always
+
+  worker:
+    build:
+      context: .
+      target: production
+    command: celery -A app.worker.celery_app.celery_app worker --loglevel=${CELERY_LOGLEVEL:-info} -Q io_queue,gpu_queue --pool=prefork --concurrency=${CELERY_CONCURRENCY:-2}
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in the cloud environment}
+      POSTGRES_URL: ${DATABASE_URL:?DATABASE_URL must be set in the cloud environment}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL must be set in the cloud environment}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      WHISPER_MODEL: ${WHISPER_MODEL:-tiny}
+      MAX_QUALITY: ${MAX_QUALITY:-720}
+    restart: always

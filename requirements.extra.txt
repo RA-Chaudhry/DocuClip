@@ -1,0 +1,3 @@
+# Fast-changing / small runtime additions live in their own Docker layer.
+# Updating this file does not invalidate the heavy AI dependency layer.
+
