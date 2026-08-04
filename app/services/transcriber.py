@@ -11,12 +11,18 @@ _WHISPER_MODEL = None
 def _get_whisper_model():
     global _WHISPER_MODEL
     if _WHISPER_MODEL is None:
+        # RAM OPTIMIZATION 1: cpu_threads aur num_workers limit karo
+        # RAM OPTIMIZATION 2: download_root set karo taake model cache disk par rahe
         _WHISPER_MODEL = WhisperModel(
             settings.WHISPER_MODEL or "tiny",
             device="cpu",
             compute_type="int8",
+            cpu_threads=2,                # CPU threads limit (RAM bachata hai)
+            num_workers=1,                # Parallel workers 1 (RAM bachata hai)
+            download_root="/tmp/whisper_cache"  # Model RAM ki jagah disk par cache
         )
     return _WHISPER_MODEL
+
 
 # Parse time string like "00:00:17,750" or "00:01:23,456" into seconds (float)
 def parse_time_str(time_str: str) -> float:
@@ -30,6 +36,7 @@ def parse_time_str(time_str: str) -> float:
         return float(m) * 60 + float(s)
     else:
         return float(parts[0])
+
 
 def parse_mhtml_transcript(mhtml_path: str) -> dict:
     try:
@@ -93,6 +100,7 @@ def parse_mhtml_transcript(mhtml_path: str) -> dict:
                 "words": []
             }]
         }
+
 
 # transcribe_audio function audio file path read karegi aur transcription segments complete detail ke sath return karegi
 def transcribe_audio(audio_path: str) -> dict:
