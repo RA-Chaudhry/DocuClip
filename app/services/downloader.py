@@ -44,7 +44,17 @@ def normalize_youtube_url(url: str) -> str:
 
 
 def generate_hash(url: str) -> str:
-    """Hash the normalized URL, ignoring share/tracking query parameters."""
+    """Hash the normalized URL or local file, ignoring share/tracking query parameters."""
+    if not url:
+        return hashlib.sha256(b"").hexdigest()
+    local_path = url.removeprefix("file://") if url.startswith("file://") else url
+    if os.path.exists(local_path):
+        try:
+            stat = os.stat(local_path)
+            file_key = f"file:{os.path.abspath(local_path)}:{stat.st_size}:{stat.st_mtime}"
+            return hashlib.sha256(file_key.encode("utf-8")).hexdigest()
+        except Exception:
+            return hashlib.sha256(url.encode("utf-8")).hexdigest()
     normalized = normalize_youtube_url(url)
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
@@ -52,9 +62,13 @@ def generate_hash(url: str) -> str:
 def download_media(url: str, output_dir: str = "/tmp/shared", quality: int = 480, job_id: int | None = None) -> tuple[str, str]:
     """Download audio+video once, merge them to one MP4, and return its path.
 
-    The two return values are intentionally the same for compatibility with
-    existing callers that still use ``audio_path, video_path``.
+    If the url points to an existing local file or file:// URI, returns the local path directly.
     """
+    # Check if local video file path
+    local_path = url.removeprefix("file://") if url.startswith("file://") else url
+    if os.path.exists(local_path):
+        return (os.path.abspath(local_path), os.path.abspath(local_path))
+
     if not os.path.exists(output_dir):
         try:
             os.makedirs(output_dir, exist_ok=True)

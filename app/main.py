@@ -1,5 +1,9 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException
+import re
+import shutil
+import time
+from typing import Optional
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,8 +24,9 @@ try:
 except Exception as exc:
     print(f"Database initialization warning: {exc}")
 
-# Ensure clips directory exists and mount static files route
+# Ensure clips and uploads directories exist and mount static files route
 os.makedirs("clips", exist_ok=True)
+os.makedirs("uploads", exist_ok=True)
 
 app = FastAPI(title="DocuClip API", version="0.1.0")
 app.include_router(jobs_router)
@@ -172,6 +177,99 @@ def process_video(request: VideoRequest, db: Session = Depends(get_db)):
         "target_duration_seconds": request.target_duration_seconds
     }
 
+@app.post("/api/v1/upload-video")
+async def upload_and_process_video(
+    file: UploadFile = File(...),
+    user_style: str = Form("fast_paced"),
+    clip_duration: str = Form("medium"),
+    min_duration_seconds: float = Form(25.0),
+    max_duration_seconds: float = Form(75.0),
+    target_duration_seconds: Optional[float] = Form(None),
+    video_quality: int = Form(480),
+    db: Session = Depends(get_db)
+):
+    """
+    Accepts an uploaded video file, saves it to the local uploads directory,
+    and initiates the DocuClip processing pipeline directly.
+    """
+    os.makedirs("uploads", exist_ok=True)
+    
+    clean_filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", file.filename or "video.mp4")
+    file_id = f"upload_{int(time.time())}_{clean_filename}"
+    saved_path = os.path.abspath(os.path.join("uploads", file_id))
+    
+    with open(saved_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    file_url = f"file://{saved_path}"
+    
+    min_duration, max_duration = DURATION_PRESETS.get(
+        clip_duration.lower(),
+        (min_duration_seconds, max_duration_seconds),
+    )
+    quality = min(settings.MAX_QUALITY, max(360, int(video_quality)))
+    
+    try:
+        new_video = VideoJob(
+            url=file_url,
+            status="PENDING",
+            min_duration_seconds=min_duration,
+            max_duration_seconds=max_duration,
+            video_quality=quality,
+        )
+        db.add(new_video)
+        db.commit()
+        db.refresh(new_video)
+        video_id = new_video.id
+    except Exception as exc:
+        print(f"DB unavailable during video upload: {exc}")
+        video_id = None
+
+    try:
+        task = extract_audio_and_proxy.delay(
+            url=file_url,
+            video_id=video_id if video_id is not None else 0,
+            user_style=user_style,
+            min_duration_seconds=min_duration,
+            max_duration_seconds=max_duration,
+            target_duration_seconds=target_duration_seconds,
+            video_quality=quality,
+        )
+        if video_id is not None:
+            new_video.task_id = str(task.id)
+            db.commit()
+            register_task(video_id, str(task.id))
+            set_progress(video_id, "Queued", 0, 0, f"Uploaded video '{file.filename}' queued for processing")
+    except Exception as exc:
+        print(f"Celery queue unavailable during video upload: {exc}")
+        return {
+            **_safe_db_error_response("Video upload queued partially; background worker is not available."),
+            "task_id": None,
+            "video_id": video_id,
+            "video_url": file_url,
+            "filename": file.filename,
+            "user_style": user_style,
+            "min_duration_seconds": min_duration,
+            "max_duration_seconds": max_duration,
+            "clip_duration": clip_duration,
+            "video_quality": quality,
+            "target_duration_seconds": target_duration_seconds
+        }
+
+    return {
+        "message": "Local video successfully uploaded and submitted to the processing queue!",
+        "task_id": str(task.id),
+        "video_id": video_id,
+        "video_url": file_url,
+        "filename": file.filename,
+        "user_style": user_style,
+        "min_duration_seconds": min_duration,
+        "max_duration_seconds": max_duration,
+        "clip_duration": clip_duration,
+        "video_quality": quality,
+        "target_duration_seconds": target_duration_seconds
+    }
+
 @app.get("/api/v1/jobs")
 def list_jobs(db: Session = Depends(get_db)):
     video_jobs = db.query(VideoJob).order_by(VideoJob.created_at.desc()).all()
@@ -233,12 +331,14 @@ def ensure_clip_files_exist(video_job: VideoJob):
                     ]
                     subprocess.run(fb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             
-            if audio_path and os.path.exists(audio_path):
-                try: os.remove(audio_path)
-                except Exception: pass
-            if video_path and os.path.exists(video_path):
-                try: os.remove(video_path)
-                except Exception: pass
+            # Only remove if downloaded temporary file, not local uploaded file
+            if not video_job.url.startswith("file://"):
+                if audio_path and os.path.exists(audio_path):
+                    try: os.remove(audio_path)
+                    except Exception: pass
+                if video_path and os.path.exists(video_path):
+                    try: os.remove(video_path)
+                    except Exception: pass
     except Exception as e:
         print(f"Error auto-repairing missing clip files for Video ID {video_job.id}: {str(e)}")
 

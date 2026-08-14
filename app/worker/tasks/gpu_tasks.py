@@ -217,20 +217,21 @@ def process_gpu_pipeline(
         finally:
             db.close()
 
-        # 7. Cleanup downloaded media files
-        if audio_path and os.path.exists(audio_path):
-            try:
-                os.remove(audio_path)
-                logger.info(f"Cleaned up audio file: {audio_path}")
-            except Exception as cleanup_exc:
-                logger.warning(f"Could not delete audio file {audio_path}: {str(cleanup_exc)}")
-                
-        if proxy_video_path and os.path.exists(proxy_video_path):
-            try:
-                os.remove(proxy_video_path)
-                logger.info(f"Cleaned up proxy video file: {proxy_video_path}")
-            except Exception as cleanup_exc:
-                logger.warning(f"Could not delete proxy video file {proxy_video_path}: {str(cleanup_exc)}")
+        # 7. Cleanup downloaded media files (do not delete local uploaded files)
+        if not url.startswith("file://"):
+            if audio_path and os.path.exists(audio_path):
+                try:
+                    os.remove(audio_path)
+                    logger.info(f"Cleaned up audio file: {audio_path}")
+                except Exception as cleanup_exc:
+                    logger.warning(f"Could not delete audio file {audio_path}: {str(cleanup_exc)}")
+                    
+            if proxy_video_path and os.path.exists(proxy_video_path):
+                try:
+                    os.remove(proxy_video_path)
+                    logger.info(f"Cleaned up proxy video file: {proxy_video_path}")
+                except Exception as cleanup_exc:
+                    logger.warning(f"Could not delete proxy video file {proxy_video_path}: {str(cleanup_exc)}")
 
         logger.info(f"GPU pipeline execution completed successfully. Obtained {len(sorted_clips)} valid clip boundaries.")
         return [c.model_dump() for c in sorted_clips]

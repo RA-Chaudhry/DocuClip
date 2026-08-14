@@ -2,3 +2,4 @@
 # Updating this file does not invalidate the heavy AI dependency layer.
 opencv-python-headless>=4.8.0
 scikit-learn>=1.3.0
+python-multipart>=0.0.6

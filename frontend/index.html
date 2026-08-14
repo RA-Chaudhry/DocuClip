@@ -109,21 +109,67 @@
                         <div class="absolute -right-16 -top-16 w-32 h-32 bg-indigo-600/10 rounded-full blur-3xl"></div>
                         <div class="absolute -left-16 -bottom-16 w-32 h-32 bg-purple-600/10 rounded-full blur-3xl"></div>
 
-                        <h2 class="text-lg font-bold mb-5 flex items-center gap-2">
-                            <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
-                            New Processing Job
-                        </h2>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold flex items-center gap-2">
+                                <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
+                                New Processing Job
+                            </h2>
+                        </div>
+                        
+                        <!-- Mode Switcher Tabs: URL vs Upload Video -->
+                        <div class="grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800 rounded-2xl mb-5 text-xs font-semibold">
+                            <button type="button" id="tab-url-btn" onclick="switchInputMode('url')" class="touch-button py-2 px-3 rounded-xl flex items-center justify-center gap-2 bg-indigo-600 text-white shadow transition">
+                                <i data-lucide="link" class="w-4 h-4"></i>
+                                <span>YouTube / URL</span>
+                            </button>
+                            <button type="button" id="tab-upload-btn" onclick="switchInputMode('upload')" class="touch-button py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200 transition">
+                                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                                <span>Upload Video</span>
+                            </button>
+                        </div>
                         
                         <form id="process-form" class="space-y-5">
-                            <div>
-                                <label for="url" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">YouTube Video URL</label>
+                            <!-- URL Input Section -->
+                            <div id="url-input-container">
+                                <label for="url" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Video URL</label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
                                         <i data-lucide="play-circle" class="w-5 h-5"></i>
                                     </span>
-                                    <input type="url" id="url" required 
+                                    <input type="url" id="url" 
                                         placeholder="https://www.youtube.com/watch?v=..." 
                                         class="w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition">
+                                </div>
+                            </div>
+                            
+                            <!-- Upload Input Section -->
+                            <div id="upload-input-container" class="hidden">
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Select Downloaded Video File</label>
+                                <div id="drop-zone" onclick="document.getElementById('video_file').click()" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-950/50 hover:bg-slate-900/60 rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center group">
+                                    <input type="file" id="video_file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,video/*" class="hidden" onchange="handleFileSelected(this.files)">
+                                    <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl mb-3 group-hover:scale-110 transition">
+                                        <i data-lucide="file-video" class="w-7 h-7"></i>
+                                    </div>
+                                    <p id="upload-prompt" class="text-sm font-medium text-slate-200">
+                                        Click to browse or drag & drop video
+                                    </p>
+                                    <p id="upload-meta" class="text-xs text-slate-500 mt-1">
+                                        MP4, MOV, MKV, WebM supported
+                                    </p>
+                                </div>
+                                
+                                <!-- Selected File Preview Pill -->
+                                <div id="selected-file-pill" class="hidden mt-2 p-3 bg-slate-950/90 border border-slate-800 rounded-xl flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+                                        <div class="truncate">
+                                            <p id="selected-file-name" class="text-xs font-semibold text-slate-200 truncate">video.mp4</p>
+                                            <p id="selected-file-size" class="text-[11px] text-slate-500">0 MB</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="clearSelectedFile(event)" class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-rose-400 transition" title="Remove File">
+                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                    </button>
                                 </div>
                             </div>
                             
@@ -262,12 +308,97 @@
         let jobList = [];
         let pollingInterval = null;
 
-        // Initialize Lucide Icons
+        // Page state
+        let currentInputMode = 'url';
+        let selectedVideoFile = null;
+
+        function switchInputMode(mode) {
+            currentInputMode = mode;
+            const tabUrlBtn = document.getElementById('tab-url-btn');
+            const tabUploadBtn = document.getElementById('tab-upload-btn');
+            const urlContainer = document.getElementById('url-input-container');
+            const uploadContainer = document.getElementById('upload-input-container');
+            const urlInput = document.getElementById('url');
+
+            if (mode === 'url') {
+                tabUrlBtn.className = "touch-button py-2 px-3 rounded-xl flex items-center justify-center gap-2 bg-indigo-600 text-white shadow transition";
+                tabUploadBtn.className = "touch-button py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200 transition";
+                urlContainer.classList.remove('hidden');
+                uploadContainer.classList.add('hidden');
+            } else {
+                tabUploadBtn.className = "touch-button py-2 px-3 rounded-xl flex items-center justify-center gap-2 bg-indigo-600 text-white shadow transition";
+                tabUrlBtn.className = "touch-button py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200 transition";
+                uploadContainer.classList.remove('hidden');
+                urlContainer.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        function handleFileSelected(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            selectedVideoFile = file;
+            
+            const pill = document.getElementById('selected-file-pill');
+            const nameEl = document.getElementById('selected-file-name');
+            const sizeEl = document.getElementById('selected-file-size');
+            const promptEl = document.getElementById('upload-prompt');
+            const metaEl = document.getElementById('upload-meta');
+
+            nameEl.textContent = file.name;
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            sizeEl.textContent = `${sizeMB} MB`;
+
+            pill.classList.remove('hidden');
+            promptEl.textContent = "File selected!";
+            metaEl.textContent = "Click here to choose another file";
+            lucide.createIcons();
+        }
+
+        function clearSelectedFile(event) {
+            if (event) event.stopPropagation();
+            selectedVideoFile = null;
+            const fileInput = document.getElementById('video_file');
+            if (fileInput) fileInput.value = '';
+            const pill = document.getElementById('selected-file-pill');
+            if (pill) pill.classList.add('hidden');
+            const promptEl = document.getElementById('upload-prompt');
+            if (promptEl) promptEl.textContent = "Click to browse or drag & drop video";
+            const metaEl = document.getElementById('upload-meta');
+            if (metaEl) metaEl.textContent = "MP4, MOV, MKV, WebM supported";
+            lucide.createIcons();
+        }
+
+        // Initialize Lucide Icons & drag/drop
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             checkAPIStatus();
             fetchJobs();
             startPolling();
+
+            const dropZone = document.getElementById('drop-zone');
+            if (dropZone) {
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropZone.classList.add('border-indigo-500', 'bg-slate-900/80');
+                    }, false);
+                });
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropZone.classList.remove('border-indigo-500', 'bg-slate-900/80');
+                    }, false);
+                });
+                dropZone.addEventListener('drop', (e) => {
+                    const dt = e.dataTransfer;
+                    if (dt && dt.files && dt.files.length > 0) {
+                        handleFileSelected(dt.files);
+                    }
+                }, false);
+            }
         });
 
         // Backend Status Checker
@@ -329,7 +460,7 @@
                     <div class="flex flex-col items-center justify-center py-20 text-slate-500 border border-dashed border-slate-800 rounded-2xl bg-slate-900/10">
                         <i data-lucide="folder-open" class="w-8 h-8 mb-3 text-slate-600"></i>
                         <p class="text-sm font-medium">No processing jobs submitted yet</p>
-                        <p class="text-xs text-slate-600 mt-1">Submit a YouTube URL on the left to start.</p>
+                        <p class="text-xs text-slate-600 mt-1">Submit a video URL or upload a downloaded video file on the left.</p>
                     </div>
                 `;
                 lucide.createIcons({attrs: {"class": "w-8 h-8 mb-3 text-slate-600"}});
@@ -344,6 +475,14 @@
                 const progress = job.progress || {stage: "Queued", percent: 0, eta_seconds: 0};
                 const eta = progress.eta_seconds >= 60 ? `~${Math.ceil(progress.eta_seconds / 60)} min` : `~${progress.eta_seconds}s`;
                 
+                const isLocal = (job.url || '').startsWith("file://");
+                let displayTitle = job.url;
+                if (isLocal) {
+                    const rawName = job.url.split(/[/\\]/).pop() || "local_video.mp4";
+                    const cleanName = rawName.replace(/^upload_\d+_/, '');
+                    displayTitle = `📁 Uploaded: ${cleanName}`;
+                }
+
                 return `
                     <div class="bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-4 transition-all duration-200 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div class="space-y-1.5 flex-1 min-w-0">
@@ -354,8 +493,8 @@
                                     ${job.status}
                                 </span>
                             </div>
-                            <h3 class="text-sm font-semibold truncate text-slate-200" title="${job.url}">
-                                ${job.url}
+                            <h3 class="text-sm font-semibold truncate ${isLocal ? 'text-indigo-300' : 'text-slate-200'}" title="${job.url}">
+                                ${displayTitle}
                             </h3>
                             <div class="flex items-center gap-4 text-xs text-slate-500">
                                 <span class="flex items-center gap-1">
@@ -477,7 +616,7 @@
             }, 4000);
         }
 
-        // Submit form handler
+        // Submit form handler (URL or File Upload)
         document.getElementById('process-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const urlInput = document.getElementById('url');
@@ -486,47 +625,94 @@
             const qualitySelect = document.getElementById('video_quality');
             const submitBtn = document.getElementById('submit-btn');
             
-            const url = urlInput.value.trim();
             const user_style = styleSelect.value;
-            
-            if (!url) return;
-            
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `
-                <div class="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
-                <span>Submitting video...</span>
-            `;
-            
-            try {
-                const res = await fetch(`${API_BASE}/api/v1/process-video`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url,
-                        user_style,
-                        clip_duration: durationSelect.value,
-                        video_quality: Number(qualitySelect.value)
-                    })
-                });
+            const clip_duration = durationSelect.value;
+            const video_quality = Number(qualitySelect.value);
+
+            if (currentInputMode === 'url') {
+                const url = urlInput.value.trim();
+                if (!url) {
+                    showToast("error", "Please enter a valid video URL.");
+                    return;
+                }
                 
-                if (!res.ok) throw new Error("Submission failed");
-                const data = await res.json();
-                
-                showToast("success", "Video successfully submitted to processing pipeline!");
-                urlInput.value = '';
-                
-                // Refresh list
-                await fetchJobs();
-            } catch (err) {
-                showToast("error", "Failed to submit processing request.");
-                console.error(err);
-            } finally {
-                submitBtn.disabled = false;
+                submitBtn.disabled = true;
                 submitBtn.innerHTML = `
-                    <span>Submit Video Job</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    <div class="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                    <span>Submitting video...</span>
                 `;
-                lucide.createIcons();
+                
+                try {
+                    const res = await fetch(`${API_BASE}/api/v1/process-video`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            url,
+                            user_style,
+                            clip_duration,
+                            video_quality
+                        })
+                    });
+                    
+                    if (!res.ok) throw new Error("Submission failed");
+                    const data = await res.json();
+                    
+                    showToast("success", "Video successfully submitted to processing pipeline!");
+                    urlInput.value = '';
+                    await fetchJobs();
+                } catch (err) {
+                    showToast("error", "Failed to submit processing request.");
+                    console.error(err);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `
+                        <span>Submit Video Job</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    `;
+                    lucide.createIcons();
+                }
+            } else {
+                // File Upload Mode
+                if (!selectedVideoFile) {
+                    showToast("error", "Please select or drop a downloaded video file first.");
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `
+                    <div class="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                    <span>Uploading & Queuing Video...</span>
+                `;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', selectedVideoFile);
+                    formData.append('user_style', user_style);
+                    formData.append('clip_duration', clip_duration);
+                    formData.append('video_quality', video_quality);
+
+                    const res = await fetch(`${API_BASE}/api/v1/upload-video`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!res.ok) throw new Error("Upload failed");
+                    const data = await res.json();
+
+                    showToast("success", `Local video '${selectedVideoFile.name}' uploaded and queued!`);
+                    clearSelectedFile();
+                    await fetchJobs();
+                } catch (err) {
+                    showToast("error", "Failed to upload video file.");
+                    console.error(err);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `
+                        <span>Submit Video Job</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    `;
+                    lucide.createIcons();
+                }
             }
         });
 
@@ -601,7 +787,14 @@
                 const youtubeId = getYouTubeId(job.url);
                 
                 titleEl.textContent = `Job #${job.video_id} - Clips Output`;
-                subtitleEl.textContent = job.url;
+                const isLocal = (job.url || '').startsWith("file://");
+                if (isLocal) {
+                    const rawName = job.url.split(/[/\\]/).pop() || "local_video.mp4";
+                    const cleanName = rawName.replace(/^upload_\d+_/, '');
+                    subtitleEl.textContent = `📁 Local Video: ${cleanName}`;
+                } else {
+                    subtitleEl.textContent = job.url;
+                }
                 
                 if (!job.clips || job.clips.length === 0) {
                     contentEl.innerHTML = `
