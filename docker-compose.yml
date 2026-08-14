@@ -49,11 +49,10 @@ services:
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
       WHISPER_MODEL: ${WHISPER_MODEL:-tiny}
       MAX_QUALITY: ${MAX_QUALITY:-720}
-    # CLOUD CHANGE 2: Bind mounts hata diye (volumes remove)
-    # volumes:
-    #   - .:/app
-    #   - shared_data:/tmp/shared
-    #   - pip_cache:/root/.cache/pip
+    volumes:
+      - shared_data:/tmp/shared
+      - uploads_data:/app/uploads
+      - clips_data:/app/clips
     ports:
       - "0.0.0.0:8000:8000"
     healthcheck:
@@ -73,7 +72,6 @@ services:
       context: .
       target: development
     restart: unless-stopped
-    # CLOUD CHANGE 3: deploy replicas hata diya. scaling environment se hogi.
     command: celery -A app.worker.celery_app.celery_app worker --hostname=worker@%h --loglevel=info -Q io_queue,gpu_queue --pool=prefork --concurrency=${CELERY_CONCURRENCY:-1}
     environment:
       APP_ENV: production
@@ -85,11 +83,10 @@ services:
       WHISPER_MODEL: ${WHISPER_MODEL:-tiny}
       MAX_QUALITY: ${MAX_QUALITY:-720}
       CELERY_CONCURRENCY: ${CELERY_CONCURRENCY:-1}
-    # CLOUD CHANGE 4: Bind mounts hata diye
-    # volumes:
-    #   - .:/app
-    #   - shared_data:/tmp/shared
-    #   - pip_cache:/root/.cache/pip
+    volumes:
+      - shared_data:/tmp/shared
+      - uploads_data:/app/uploads
+      - clips_data:/app/clips
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +98,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  # CLOUD CHANGE 5: shared_data aur pip_cache hataye kyunki cloud par zaroorat nahi
-  # shared_data:
-  # pip_cache:
+  shared_data:
+  uploads_data:
+  clips_data:
