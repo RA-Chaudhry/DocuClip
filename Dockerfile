@@ -12,7 +12,7 @@ WORKDIR /app
 # Runtime packages are installed in a separate layer so application code
 # changes do not invalidate the Python dependency layer.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg curl \
+    && apt-get install -y --no-install-recommends ffmpeg curl redis-server \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS dependencies
@@ -34,20 +34,28 @@ RUN --mount=type=cache,id=docuclip-pip-extra,target=/root/.cache/pip \
 FROM dependencies AS development
 
 COPY . .
-RUN mkdir -p /app/clips /tmp/shared
+RUN mkdir -p /app/clips /app/uploads /tmp/shared \
+    && chmod -R 777 /app/clips /app/uploads /tmp/shared \
+    && chmod +x /app/start.sh
 
-EXPOSE 8000
+# Hugging Face Spaces exposes port 7860, standard Docker uses 8000
+ENV PORT=7860
+EXPOSE 7860 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
+CMD ["./start.sh"]
 
 FROM dependencies AS production
 
-# Production image contains only application/runtime files and never relies
-# on a source bind mount.
+# Production image contains application/runtime files and entrypoint script
 COPY app ./app
 COPY frontend ./frontend
-RUN mkdir -p /app/clips /tmp/shared
+COPY start.sh ./start.sh
+RUN mkdir -p /app/clips /app/uploads /tmp/shared \
+    && chmod -R 777 /app/clips /app/uploads /tmp/shared \
+    && chmod +x /app/start.sh
 
-EXPOSE 8000
+ENV PORT=7860
+EXPOSE 7860 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["./start.sh"]
+
