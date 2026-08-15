@@ -1,4 +1,5 @@
 import os
+import gc
 from typing import Optional
 
 from celery.utils.log import get_task_logger
@@ -83,6 +84,8 @@ def process_gpu_pipeline(
                 transcript_dict = transcriber.transcribe_audio(audio_path)
             r.setex(cache_key, 30 * 24 * 3600, json.dumps(transcript_dict))
             logger.info(f"Successfully cached transcription outputs under Redis key: {cache_key}")
+            # Memory optimization: Immediately reclaim Whisper decoding buffers
+            gc.collect()
         set_progress(video_id, "Transcribing", 55, 90, "Transcript ready")
         raise_if_cancelled(video_id)
             
@@ -122,6 +125,8 @@ def process_gpu_pipeline(
                 if visual_hotspots else 7.5
             )
         logger.info(f"Visual analysis score for Video ID {video_id}: {visual_score}")
+        # Memory optimization: Free OpenCV/FFmpeg analysis buffers
+        gc.collect()
         raise_if_cancelled(video_id)
         
         # 4. Viral hooks generation via LLM engine with real audio energy and custom duration bounds

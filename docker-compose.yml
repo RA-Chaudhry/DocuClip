@@ -22,7 +22,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --appendonly yes
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -72,7 +72,7 @@ services:
       context: .
       target: development
     restart: unless-stopped
-    command: celery -A app.worker.celery_app.celery_app worker --hostname=worker@%h --loglevel=info -Q io_queue,gpu_queue --pool=prefork --concurrency=${CELERY_CONCURRENCY:-1}
+    command: celery -A app.worker.celery_app.celery_app worker --hostname=worker@%h --loglevel=info -Q io_queue,gpu_queue --pool=prefork --concurrency=${CELERY_CONCURRENCY:-1} --max-memory-per-child=300000 --max-tasks-per-child=25
     environment:
       APP_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-docuclip}

@@ -31,9 +31,22 @@ celery_app.conf.imports = (
     "app.worker.tasks.gpu_tasks",
 )
 
-# Reliability settings for idempotency:
+# Reliability & Memory Management settings:
 # Prefetch multiplier=1 set kiya hai taaki ek worker ek time par ek hi task fetch kare
 celery_app.conf.worker_prefetch_multiplier = 1
 
 # task_acks_late=True set kiya hai taaki failure case me task safety maintain ho sake aur task redeliver ho sake
 celery_app.conf.task_acks_late = True
+
+# Task lost handling: worker crash ya restart hone par task reject/re-queue ho
+celery_app.conf.task_reject_on_worker_lost = True
+
+# Memory leak prevention: Har 25 tasks baad worker child process recycle hoga taaki Whisper/FFmpeg/OpenCV ka memory heap fragment na ho
+celery_app.conf.worker_max_tasks_per_child = 25
+
+# Hard memory guard: 300MB RAM se zyada lene par child process automatically refresh ho
+celery_app.conf.worker_max_memory_per_child = 300000
+
+# Redis memory optimization: 1 ghante baad completed task results auto-expire ho jayein
+celery_app.conf.result_expires = 3600
+

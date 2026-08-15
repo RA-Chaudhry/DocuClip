@@ -21,6 +21,8 @@ def _build_engine():
             engine = create_engine(
                 database_url,
                 pool_pre_ping=True,
+                pool_size=3,
+                max_overflow=3,
                 pool_recycle=1800,
                 connect_args={"connect_timeout": 5},
             )
